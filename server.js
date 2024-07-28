@@ -27,10 +27,10 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 app.use(cors());
-app.use(express.static(path.join(__dirname, '../frontend')));
+app.use(express.static(path.join(__dirname, '/frontend')));
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/index.html'));
+    res.sendFile(path.join(__dirname, '/frontend/index.html'));
 });
 
 const openai = new OpenAI({
