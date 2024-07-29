@@ -6,7 +6,7 @@ const errorDisplay = document.getElementById('error');
 let mediaRecorder;
 let audioChunks = [];
 
-recordButton.onmousedown = async () => {
+recordButton.onpointerdown = async () => {
     recordButton.style = "background-color: #1976D2"
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream);
@@ -19,7 +19,7 @@ recordButton.onmousedown = async () => {
     statusDisplay.innerText = 'Recording...';
 };
 
-recordButton.onmouseup = async () => {
+recordButton.onpointerup = async () => {
     recordButton.style = "background-color: #ff3d5a"
     mediaRecorder.stop();
     statusDisplay.innerText = 'Stopped recording. Sending audio...';
