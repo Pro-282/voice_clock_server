@@ -26,8 +26,15 @@ recordButton.onmouseup = async () => {
 
     mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-        const formData = new FormData();
-        formData.append('audio', audioBlob, 'recording.wav');
+        const file = new File([audioBlob], 'recording.wav', { type: "audio/wav" })
+
+        const formData = new FormData()
+        formData.append("file", file, 'recording.wav')
+        
+        const data = {};
+        for (const [key, value] of formData.entries()) {
+            console.log(key, ":", value);
+        }
 
         try {
             const response = await fetch('/transcribe', {
@@ -40,6 +47,7 @@ recordButton.onmouseup = async () => {
             }
 
             const result = await response.json();
+            console.log(result);
             transcriptionDisplay.innerText = result.transcription;
             statusDisplay.innerText = 'Command sent';
         } catch (error) {

@@ -1,12 +1,17 @@
 const express = require('express');
 const path = require('path');
-const multer = require('multer');
 const OpenAI = require('openai');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const fs = require('fs');
 const http = require('http');
 const socketIo = require('socket.io');
+const bodyParser = require('body-parser');
+const { log } = require('console');
+const fileUpload = require('express-fileupload');
+const stream = require('stream');
+const FormData = require('form-data');
+const fetch = require('node-fetch');
 
 dotenv.config();
 
@@ -14,19 +19,10 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-// Configure multer to save files with .wav extension
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/')
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.fieldname + '-' + Date.now() + '.wav')
-  }
-});
-
-const upload = multer({ storage: storage });
-
 app.use(cors());
+app.use(fileUpload());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '/frontend')));
 
 app.get('/', (req, res) => {
@@ -38,25 +34,33 @@ const openai = new OpenAI({
     organization: 'org-aktkxrNZRBIxltD4tfEiaO54',
 });
 
-app.post('/transcribe', upload.single('audio'), async (req, res) => {
-    console.log('Uploaded file:', req.file);
-
-    if (!req.file) {
+app.post('/transcribe', async(req, res) => {
+    const audio = req.files['file'];
+    if (!audio) {
         return res.status(400).json({ error: 'No audio file uploaded.' });
     }
+    const audioStream = new stream.PassThrough();
+    audioStream._read = ()=>{};
+    audioStream.push(audio.data);
+    audioStream.push(null);
+
+    const body = new FormData();
 
     try {
-        const transcription = await openai.audio.transcriptions.create({
-            file: fs.createReadStream(req.file.path),
-            language:"en",
-            prompt: "the received audio is meant to be a command for a smart clock, which can contain words such as alarm, timer, and other clock and time terms and numbers",
-            model: 'whisper-1',
-        });
-
-        // Delete the temporary file
-        fs.unlinkSync(req.file.path);
-
-        console.log('Transcription:', transcription.text);
+        body.append("model", "whisper-1")
+        body.append("language", "en")
+        body.append("response_format", "json")
+        body.append("prompt", "the received audio is meant to be a command for a smart clock, which can contain words such as alarm, timer, and other clock and time terms and numbers")
+        
+        body.append("file", audioStream, {filename: audio.name})
+        const transcriptions_res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+            method: "POST",
+            body,
+            headers: {
+                Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+            },
+        })
+        const transcription = (await transcriptions_res.json());
 
         // Call the chat completions API
         const chatCompletion = await openai.chat.completions.create({
@@ -73,7 +77,6 @@ app.post('/transcribe', upload.single('audio'), async (req, res) => {
             ]
         });
 
-        console.log(chatCompletion.choices[0]);
         const chatResponse = chatCompletion.choices[0].message.content;
         console.log('Chat API Response:', chatResponse);
 
